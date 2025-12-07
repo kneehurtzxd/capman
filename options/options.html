@@ -14,45 +14,68 @@
       <div class="form-group">
         <label>Default Format:</label>
         <select id="default-format">
-          <option value="txt">TXT</option>
-          <option value="md">Markdown</option>
-          <option value="json">JSON</option>
-          <option value="csv">CSV</option>
-          <option value="srt">SRT</option>
-          <option value="vtt">VTT</option>
+          <option value="txt">Plain Text (.txt)</option>
+          <option value="md">Markdown (.md)</option>
+          <option value="json">JSON (.json)</option>
+          <option value="csv">CSV Spreadsheet (.csv)</option>
+          <option value="srt">SubRip Subtitles (.srt)</option>
+          <option value="vtt">WebVTT Subtitles (.vtt)</option>
         </select>
+        <p class="help-text">Default format used for batch downloads</p>
       </div>
 
       <div class="form-group">
         <label>Filename Template:</label>
         <input type="text" id="filename-template" placeholder="{date}_{title}_{videoId}.{ext}">
-        <p class="help-text">Available variables: {date}, {title}, {videoId}, {channel}, {lang}, {ext}</p>
+        <p class="help-text">
+          <strong>Available variables:</strong><br>
+          <code>{date}</code> - Current date (YYYY-MM-DD)<br>
+          <code>{title}</code> - Video title (sanitized)<br>
+          <code>{videoId}</code> - YouTube video ID<br>
+          <code>{channel}</code> - Channel name<br>
+          <code>{lang}</code> - Language code (e.g., en, es)<br>
+          <code>{ext}</code> - File extension<br>
+          <strong>Example:</strong> {date}_{title}.{ext} → 2025-12-07_My_Video.txt
+        </p>
       </div>
     </div>
 
     <div class="section">
-      <h2>AI Integration</h2>
+      <h2>AI Integration (Optional)</h2>
+      <p class="help-text" style="margin-bottom: 15px; color: #666;">
+        Enable AI-powered summarization of transcripts. Requires an OpenAI API key or compatible service.
+      </p>
+
       <div class="form-group">
         <label>API Key:</label>
         <div class="password-wrapper">
-          <input type="password" id="api-key" placeholder="sk-...">
+          <input type="password" id="api-key" placeholder="sk-proj-...">
           <button id="toggle-api-key">👁️</button>
         </div>
+        <p class="help-text">
+          Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a>
+        </p>
       </div>
 
       <div class="form-group">
         <label>API Endpoint:</label>
         <input type="text" id="api-endpoint" placeholder="https://api.openai.com/v1/chat/completions">
+        <p class="help-text">Default endpoint for OpenAI. Change for custom APIs (e.g., LocalAI, Ollama)</p>
       </div>
 
       <div class="form-group">
         <label>Model:</label>
         <input type="text" id="api-model" placeholder="gpt-4o-mini">
+        <p class="help-text">AI model to use. Options: gpt-4o-mini, gpt-4, gpt-3.5-turbo, or custom models</p>
       </div>
 
       <div class="form-group">
         <label>System Prompt:</label>
-        <textarea id="system-prompt" rows="4"></textarea>
+        <textarea id="system-prompt" rows="5" placeholder="Provide a concise summary of this transcript, highlighting the main topics and key points discussed."></textarea>
+        <p class="help-text">
+          <strong>Template variables:</strong> {title}, {videoId}, {language}<br>
+          <strong>Example:</strong> Summarize "{title}" (ID: {videoId}) highlighting key points in {language}
+        </p>
       </div>
     </div>
 

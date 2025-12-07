@@ -18,6 +18,7 @@
       <button class="tab-btn active" data-tab="quick">Quick</button>
       <button class="tab-btn" data-tab="batch">Batch</button>
       <button class="tab-btn" data-tab="projects">Projects</button>
+      <button class="tab-btn" data-tab="history">History</button>
       <button class="tab-btn" data-tab="settings" id="open-settings-btn">Settings</button>
     </div>
 
@@ -54,6 +55,16 @@
       </div>
       <ul id="project-list">
         <!-- Project items -->
+      </ul>
+    </div>
+
+    <div id="history-tab" class="tab-content">
+      <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 12px; color: #666;">Recent Downloads</span>
+        <button id="clear-history-btn" style="padding: 5px 10px; font-size: 11px;">Clear History</button>
+      </div>
+      <ul id="history-list" style="list-style: none; padding: 0; margin: 0; max-height: 300px; overflow-y: auto;">
+        <!-- History items -->
       </ul>
     </div>
 

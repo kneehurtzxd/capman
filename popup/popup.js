@@ -5,10 +5,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load Projects
   await loadProjects();
 
+  // Load History
+  await loadHistory();
+
   // Tabs Logic
   const tabs = document.querySelectorAll('.tab-btn');
   tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
+    tab.addEventListener('click', async () => {
       // Deactivate all
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -16,6 +19,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Activate clicked
       tab.classList.add('active');
       document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
+
+      // Reload history when tab is opened
+      if (tab.dataset.tab === 'history') {
+        await loadHistory();
+      }
     });
   });
 
@@ -37,6 +45,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Project handlers
   document.getElementById('create-project-btn').addEventListener('click', createProject);
   document.getElementById('project-selector').addEventListener('change', switchProject);
+
+  // History handlers
+  document.getElementById('clear-history-btn').addEventListener('click', clearHistory);
 });
 
 async function loadProjects() {
@@ -204,6 +215,77 @@ async function startBatchDownload() {
     document.getElementById('batch-progress-bar').style.width = '0%';
     const log = document.getElementById('batch-log');
     log.innerHTML = '';
+}
+
+async function loadHistory() {
+    const data = await StorageManager.getAll();
+    const activeId = data.activeProjectId || 'default';
+
+    let history = {};
+    if (activeId !== 'default' && data.projects && data.projects[activeId]) {
+        history = data.projects[activeId].downloadHistory || {};
+    } else {
+        history = data.downloadHistory || {};
+    }
+
+    const list = document.getElementById('history-list');
+    list.innerHTML = '';
+
+    const entries = Object.entries(history)
+        .sort((a, b) => b[1].downloadedAt - a[1].downloadedAt)
+        .slice(0, 50);
+
+    if (entries.length === 0) {
+        list.innerHTML = '<li style="text-align: center; padding: 20px; color: #999;">No downloads yet</li>';
+        return;
+    }
+
+    entries.forEach(([videoId, item]) => {
+        const li = document.createElement('li');
+        li.style.cssText = 'padding: 10px; border-bottom: 1px solid #f0f0f0; font-size: 12px;';
+
+        const date = new Date(item.downloadedAt).toLocaleDateString();
+        const time = new Date(item.downloadedAt).toLocaleTimeString();
+        const formats = item.formats?.join(', ') || 'txt';
+        const summaryBadge = item.hasSummary ? '<span style="background: #4CAF50; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 5px;">AI</span>' : '';
+
+        li.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="flex: 1;">
+                    <strong style="color: #333;">${item.title || videoId}</strong>
+                    ${summaryBadge}
+                    <div style="color: #666; font-size: 11px; margin-top: 3px;">
+                        <span>${videoId}</span> •
+                        <span>${formats}</span> •
+                        <span>${item.language || 'en'}</span>
+                    </div>
+                    <div style="color: #999; font-size: 10px; margin-top: 2px;">
+                        ${date} ${time}
+                    </div>
+                </div>
+                <a href="https://youtube.com/watch?v=${videoId}" target="_blank"
+                   style="color: #cc0000; text-decoration: none; font-size: 18px; padding: 5px;"
+                   title="Open video">▶</a>
+            </div>
+        `;
+        list.appendChild(li);
+    });
+}
+
+async function clearHistory() {
+    if (!confirm('Clear all download history for this project?')) return;
+
+    const data = await StorageManager.getAll();
+    const activeId = data.activeProjectId || 'default';
+
+    if (activeId !== 'default' && data.projects && data.projects[activeId]) {
+        data.projects[activeId].downloadHistory = {};
+        await StorageManager.save({ projects: data.projects });
+    } else {
+        await StorageManager.save({ downloadHistory: {} });
+    }
+
+    await loadHistory();
 }
 
 chrome.runtime.onMessage.addListener((message) => {

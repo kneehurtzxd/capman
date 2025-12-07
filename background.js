@@ -23,57 +23,80 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 async function processBatch(urls) {
     const total = urls.length;
     let current = 0;
+    const storage = await StorageManager.getAll();
+    const settings = storage.settings || StorageManager.defaults.settings;
 
     for (const url of urls) {
         current++;
         let videoId = null;
-        try {
-            // Normalize URL/ID
-            if (url.match(/^[a-zA-Z0-9_-]{11}$/)) {
-                videoId = url;
-            } else {
-                const u = new URL(url);
-                videoId = u.searchParams.get('v');
-                if (!videoId && u.hostname === 'youtu.be') {
-                    videoId = u.pathname.slice(1);
-                }
-            }
-        } catch (e) {
-            console.warn("Invalid URL:", url);
-        }
+        const trimmedUrl = url.trim();
 
-        if (!videoId) {
-            notifyProgress(total, current, "Invalid URL", url, false);
+        if (!trimmedUrl) {
             continue;
         }
 
-        notifyProgress(total, current, "Processing...", videoId);
+        try {
+            // Normalize URL/ID
+            if (trimmedUrl.match(/^[a-zA-Z0-9_-]{11}$/)) {
+                videoId = trimmedUrl;
+            } else {
+                const u = new URL(trimmedUrl);
+                videoId = u.searchParams.get('v');
+                if (!videoId && u.hostname === 'youtu.be') {
+                    videoId = u.pathname.slice(1).split('?')[0];
+                }
+            }
+        } catch (e) {
+            console.warn("Invalid URL:", trimmedUrl, e);
+            notifyProgress(total, current, "Invalid URL format", trimmedUrl.substring(0, 20), false);
+            continue;
+        }
+
+        if (!videoId || videoId.length !== 11) {
+            notifyProgress(total, current, "Invalid video ID", trimmedUrl.substring(0, 20), false);
+            continue;
+        }
+
+        notifyProgress(total, current, "Fetching...", videoId);
 
         try {
             await limiter.executeWithRetry(async () => {
                  const res = await fetch(`https://www.youtube.com/watch?v=${videoId}`);
-                 if (!res.ok) throw new Error("Video page unreachable");
+                 if (!res.ok) {
+                     throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                 }
 
                  const html = await res.text();
-                 // Now strictly using Regex based parser in background
+
+                 // Check if video exists
+                 if (html.includes('"playabilityStatus":{"status":"ERROR"')) {
+                     throw new Error("Video unavailable");
+                 }
+
                  const tracks = TranscriptParser.extractCaptionTracks(html);
 
                  if (!tracks || tracks.length === 0) {
-                     throw new Error("No captions found");
+                     throw new Error("No captions available");
                  }
 
-                 // Prefer English or first available
-                 let track = tracks.find(t => t.languageCode === 'en');
+                 // Prefer user's default language, then English, then first available
+                 let track = tracks.find(t => t.languageCode === settings.defaultLanguage);
+                 if (!track) track = tracks.find(t => t.languageCode === 'en');
                  if (!track) track = tracks[0];
 
+                 notifyProgress(total, current, "Downloading...", videoId);
                  const segments = await TranscriptParser.fetchTranscript(track.baseUrl);
+
+                 if (!segments || segments.length === 0) {
+                     throw new Error("Empty transcript");
+                 }
 
                  // Extract title from HTML via Regex
                  const titleMatch = html.match(/<title>(.*?) - YouTube<\/title>/);
                  const title = titleMatch ? titleMatch[1] : `Video ${videoId}`;
 
-                 // Use settings for format? For now default to txt
-                 const formats = ['txt'];
+                 // Use user's default format
+                 const formats = [settings.defaultFormat || 'txt'];
 
                  await handleDownload({
                      videoId,
@@ -86,9 +109,12 @@ async function processBatch(urls) {
             notifyProgress(total, current, "Completed", videoId, true);
         } catch (err) {
             console.error(videoId, err);
-            notifyProgress(total, current, `Failed: ${err.message}`, videoId, false);
+            const errorMsg = err.message || "Unknown error";
+            notifyProgress(total, current, `Failed: ${errorMsg}`, videoId, false);
         }
     }
+
+    notifyProgress(total, total, "Batch complete", `${total} videos processed`, null);
 }
 
 function notifyProgress(total, current, status, videoId, success) {
@@ -115,19 +141,38 @@ async function handleDownload(data) {
 
   // AI Summary Handling
   let summaryContent = null;
-  if (withSummary && settings.ai && settings.ai.apiKey) {
-      try {
-          const fullText = segments.map(s => s.text).join(' ');
-          // Pass metadata for template replacement
-          const metadata = {
-              title: title,
-              videoId: videoId,
-              language: language,
-              // channel: channel // if we had it
-          };
-          summaryContent = await AIService.summarize(fullText, settings.ai, metadata);
-      } catch (e) {
-          console.error("Summary generation failed", e);
+  if (withSummary) {
+      if (!settings.ai || !settings.ai.apiKey) {
+          chrome.notifications.create({
+              type: 'basic',
+              iconUrl: 'icons/icon-48.png',
+              title: 'AI Summary Not Configured',
+              message: 'Please configure your AI API key in settings to enable summarization.'
+          });
+      } else {
+          try {
+              const fullText = segments.map(s => s.text).join(' ');
+              const metadata = {
+                  title: title,
+                  videoId: videoId,
+                  language: language
+              };
+              summaryContent = await AIService.summarize(fullText, settings.ai, metadata);
+              chrome.notifications.create({
+                  type: 'basic',
+                  iconUrl: 'icons/icon-48.png',
+                  title: 'Summary Generated',
+                  message: `Summary created for "${title}"`
+              });
+          } catch (e) {
+              console.error("Summary generation failed", e);
+              chrome.notifications.create({
+                  type: 'basic',
+                  iconUrl: 'icons/icon-48.png',
+                  title: 'Summary Failed',
+                  message: `Failed to generate summary: ${e.message}`
+              });
+          }
       }
   }
 
@@ -175,6 +220,15 @@ async function handleDownload(data) {
       formats,
       language,
       hasSummary: !!summaryContent
+  });
+
+  // Success notification
+  const formatList = formats.join(', ');
+  chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icons/icon-48.png',
+      title: 'Download Complete',
+      message: `"${title}" downloaded as ${formatList}${summaryContent ? ' with summary' : ''}`
   });
 }
 

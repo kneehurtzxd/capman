@@ -23,6 +23,15 @@ function init() {
       checkPage();
     }
   }).observe(document, {subtree: true, childList: true});
+
+  // Listen for messages from popup
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'openModal') {
+      openModal();
+      sendResponse({ success: true });
+    }
+    return true;
+  });
 }
 
 /**
