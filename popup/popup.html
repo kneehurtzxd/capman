@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>YouTube Transcript Downloader</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>YT Transcript Downloader</h1>
+      <select id="project-selector" title="Select Project">
+        <option value="default">Default Project</option>
+      </select>
+    </header>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="quick">Quick</button>
+      <button class="tab-btn" data-tab="batch">Batch</button>
+      <button class="tab-btn" data-tab="projects">Projects</button>
+      <button class="tab-btn" data-tab="settings" id="open-settings-btn">Settings</button>
+    </div>
+
+    <div id="quick-tab" class="tab-content active">
+      <div id="current-video-info">
+        <p>Detecting video...</p>
+      </div>
+      <div class="actions">
+        <button id="quick-download-btn" disabled>Download Current Video</button>
+      </div>
+    </div>
+
+    <div id="batch-tab" class="tab-content">
+      <div class="batch-input-group">
+        <label for="batch-urls">Enter YouTube URLs (one per line):</label>
+        <textarea id="batch-urls" placeholder="https://youtube.com/watch?v=..." rows="6"></textarea>
+      </div>
+      <div class="batch-controls">
+         <button id="scrape-page-btn">Scrape Current Page</button>
+         <button id="start-batch-btn" class="primary">Start Batch Download</button>
+      </div>
+      <div id="batch-progress">
+        <div class="progress-bar-container" style="display:none; background: #eee; height: 10px; border-radius: 5px; margin: 10px 0;">
+            <div id="batch-progress-bar" style="width: 0%; background: #cc0000; height: 100%; border-radius: 5px; transition: width 0.3s;"></div>
+        </div>
+        <ul id="batch-log" style="max-height: 200px; overflow-y: auto; list-style: none; padding: 0; font-size: 11px; border: 1px solid #eee;"></ul>
+      </div>
+    </div>
+
+    <div id="projects-tab" class="tab-content">
+      <div class="project-controls">
+        <input type="text" id="new-project-name" placeholder="New Project Name">
+        <button id="create-project-btn">Create</button>
+      </div>
+      <ul id="project-list">
+        <!-- Project items -->
+      </ul>
+    </div>
+
+    <!-- Settings are handled in options page, but we might show quick settings here?
+         For now, the button just opens options page. -->
+  </div>
+  <script src="../lib/storage-manager.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
